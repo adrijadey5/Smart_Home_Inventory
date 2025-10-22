@@ -34,7 +34,7 @@ export function useInventory(userId?: string) {
     
     const dataToSave = {
       ...item,
-      expiryDate: item.expiryDate?.toISOString(),
+      expiryDate: item.expiryDate?.toISOString() || null,
     };
     
     addDocumentNonBlocking(inventoryCollectionRef, dataToSave);
@@ -47,7 +47,7 @@ export function useInventory(userId?: string) {
     
     const dataToSave = {
       ...updatedItem,
-      expiryDate: updatedItem.expiryDate?.toISOString(),
+      expiryDate: updatedItem.expiryDate?.toISOString() || null,
     };
     delete (dataToSave as any).id; 
     
