@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { Home, Package, Plus, Bell } from 'lucide-react';
-import { addDays, isBefore, isSameDay } from 'date-fns';
+import { addDays, isBefore } from 'date-fns';
 
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,92 +9,35 @@ import { AddItemSheet } from '@/components/add-item-sheet';
 import { InventoryTable } from '@/components/inventory-table';
 import { Dashboard } from '@/components/dashboard';
 import type { InventoryItem } from '@/lib/types';
-import { DEFAULT_INVENTORY } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const STORAGE_KEY = 'homestock-inventory';
-const LAST_CHECK_KEY = 'homestock-last-check';
+import { useInventory } from '@/hooks/use-inventory';
+import { useUser } from '@/firebase';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useAuth } from '@/firebase/provider';
 
 export default function HomeStockLayout() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<InventoryItem | undefined>(undefined);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
   
   const { toast } = useToast();
-
-  useEffect(() => {
-    try {
-      const storedInventory = localStorage.getItem(STORAGE_KEY);
-      if (storedInventory) {
-        const parsed = JSON.parse(storedInventory).map((item: any) => ({
-          ...item,
-          expiryDate: item.expiryDate ? new Date(item.expiryDate) : undefined,
-        }));
-        setInventory(parsed);
-      } else {
-        setInventory(DEFAULT_INVENTORY);
-      }
-    } catch (error) {
-      console.error("Failed to load inventory from local storage", error);
-      setInventory(DEFAULT_INVENTORY);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
-      } catch (error) {
-        console.error("Failed to save inventory to local storage", error);
-      }
-    }
-  }, [inventory, isLoaded]);
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   
   useEffect(() => {
-    if (!isLoaded) return;
-    
-    const lastCheckStr = localStorage.getItem(LAST_CHECK_KEY);
-    const today = new Date();
-    const lastCheck = lastCheckStr ? new Date(lastCheckStr) : null;
-    
-    if (!lastCheck || !isSameDay(today, lastCheck)) {
-      const recurringItems = inventory.filter(i => i.isRecurring);
-      if (recurringItems.length > 0) {
-        toast({
-          title: "Recurring Items Reminder",
-          description: `Remember to check stock for: ${recurringItems.map(i => i.name).slice(0,3).join(', ')}.`,
-        });
-      }
-      localStorage.setItem(LAST_CHECK_KEY, today.toISOString());
+    if (!user && !isUserLoading) {
+      initiateAnonymousSignIn(auth);
     }
-  }, [isLoaded, inventory, toast]);
+  }, [user, isUserLoading, auth]);
 
-  const handleAddItem = (item: Omit<InventoryItem, 'id'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: crypto.randomUUID(),
-    };
-    setInventory(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
-    toast({ title: "Success", description: `${newItem.name} added to inventory.` });
-  };
+  const {
+    inventory,
+    isLoaded,
+    handleAddItem,
+    handleEditItem,
+    handleDeleteItem
+  } = useInventory(user?.uid);
 
-  const handleEditItem = (updatedItem: InventoryItem) => {
-    setInventory(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item).sort((a, b) => a.name.localeCompare(b.name)));
-    toast({ title: "Success", description: `${updatedItem.name} has been updated.` });
-  };
-  
-  const handleDeleteItem = (itemId: string) => {
-    const itemName = inventory.find(i => i.id === itemId)?.name || 'Item';
-    setInventory(prev => prev.filter(item => item.id !== itemId));
-    toast({
-        title: "Item Deleted",
-        description: `${itemName} removed from inventory.`,
-        variant: "destructive"
-    });
-  };
 
   const openEditSheet = (item: InventoryItem) => {
     setItemToEdit(item);
@@ -118,7 +61,7 @@ export default function HomeStockLayout() {
 
   const totalAlerts = useMemo(() => lowStockItems.length + expiringSoonItems.length, [lowStockItems, expiringSoonItems]);
 
-  if (!isLoaded) {
+  if (!isLoaded || isUserLoading) {
     return (
         <div className="p-4 md:p-8 space-y-6">
             <header className="flex items-center justify-between">
