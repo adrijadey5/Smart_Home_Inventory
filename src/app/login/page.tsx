@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,10 +21,11 @@ export default function LoginPage() {
   const { user } = useUser();
   const router = useRouter();
 
-  if (user) {
-    router.replace('/');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      router.replace('/');
+    }
+  }, [user, router]);
 
   const handleLogin = () => {
     initiateEmailSignIn(auth, loginEmail, loginPassword);
@@ -33,6 +34,10 @@ export default function LoginPage() {
   const handleSignUp = () => {
     initiateEmailSignUp(auth, signUpEmail, signUpPassword);
   };
+
+  if (user) {
+    return null; // Render nothing while redirecting
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
