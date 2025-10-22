@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { Home, Package, Plus, Bell } from 'lucide-react';
+import { Home, Package, Plus, Bell, LogOut } from 'lucide-react';
 import { addDays, isBefore } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,8 +13,7 @@ import type { InventoryItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useInventory } from '@/hooks/use-inventory';
-import { useUser } from '@/firebase';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useUser } from '@/firebase/auth/use-user';
 import { useAuth } from '@/firebase/provider';
 
 export default function HomeStockLayout() {
@@ -23,12 +23,13 @@ export default function HomeStockLayout() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const router = useRouter();
   
   useEffect(() => {
     if (!user && !isUserLoading) {
-      initiateAnonymousSignIn(auth);
+      router.push('/login');
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading, router]);
 
   const {
     inventory,
@@ -49,6 +50,11 @@ export default function HomeStockLayout() {
     setSheetOpen(true);
   };
   
+  const handleSignOut = () => {
+    auth.signOut();
+    toast({ title: 'Signed Out', description: 'You have been successfully signed out.' });
+  }
+  
   const { lowStockItems, expiringSoonItems } = useMemo(() => {
     if (!isLoaded) return { lowStockItems: [], expiringSoonItems: [] };
     const lowStock = inventory.filter(item => item.quantity <= item.lowStockThreshold);
@@ -61,7 +67,7 @@ export default function HomeStockLayout() {
 
   const totalAlerts = useMemo(() => lowStockItems.length + expiringSoonItems.length, [lowStockItems, expiringSoonItems]);
 
-  if (!isLoaded || isUserLoading) {
+  if (isUserLoading || !user) {
     return (
         <div className="p-4 md:p-8 space-y-6">
             <header className="flex items-center justify-between">
@@ -69,7 +75,7 @@ export default function HomeStockLayout() {
                     <Skeleton className="h-8 w-8" />
                     <Skeleton className="h-8 w-40" />
                 </div>
-                <Skeleton className="h-10 w-28" />
+                 <Skeleton className="h-10 w-28" />
             </header>
             <Skeleton className="h-10 w-full md:w-[400px]" />
             <Skeleton className="h-64 w-full" />
@@ -84,9 +90,15 @@ export default function HomeStockLayout() {
           <Package className="h-8 w-8 text-primary" />
           <h1 className="text-2xl md:text-3xl font-bold font-headline text-foreground">HomeStock</h1>
         </div>
-        <Button onClick={openAddSheet}>
-          <Plus className="mr-2 h-4 w-4" /> Add Item
-        </Button>
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
+            </Button>
+            <Button onClick={openAddSheet}>
+                <Plus className="mr-2 h-4 w-4" /> Add Item
+            </Button>
+        </div>
       </header>
       
       <Tabs defaultValue="inventory" className="w-full">
