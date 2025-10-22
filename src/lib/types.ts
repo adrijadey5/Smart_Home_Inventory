@@ -9,3 +9,12 @@ export type PredefinedItem = {
   barcode?: string;
   lowStockThreshold?: number;
 };
+
+export type InventoryItemHistory = {
+  id: string;
+  changeType: 'created' | 'updated' | 'deleted';
+  changedFields?: string[];
+  oldData?: Partial<InventoryItem>;
+  newData?: Partial<InventoryItem>;
+  timestamp: Date;
+};

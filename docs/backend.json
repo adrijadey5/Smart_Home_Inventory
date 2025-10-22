@@ -80,6 +80,44 @@
         "quantity",
         "expiryDate"
       ]
+    },
+    "InventoryItemHistory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InventoryItemHistory",
+      "type": "object",
+      "description": "Represents the history of changes for an inventory item.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the history entry."
+        },
+        "changeType": {
+          "type": "string",
+          "enum": ["created", "updated", "deleted"],
+          "description": "The type of change that occurred."
+        },
+        "changedFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The fields that were changed in an update."
+        },
+        "oldData": {
+          "type": "object",
+          "description": "The data of the item before the change."
+        },
+        "newData": {
+          "type": "object",
+          "description": "The data of the item after the change."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp of when the change occurred."
+        }
+      },
+      "required": ["id", "changeType", "timestamp"]
     }
   },
   "auth": {
@@ -124,8 +162,32 @@
             }
           ]
         }
+      },
+      {
+        "path": "/users/{userId}/inventory_items/{inventoryItemId}/history/{historyId}",
+        "definition": {
+            "entityName": "InventoryItemHistory",
+            "schema": {
+                "$ref": "#/backend/entities/InventoryItemHistory"
+            },
+            "description": "History of changes for a specific inventory item.",
+            "params": [
+                {
+                    "name": "userId",
+                    "description": "Unique identifier for the user."
+                },
+                {
+                    "name": "inventoryItemId",
+                    "description": "Unique identifier for the inventory item."
+                },
+                {
+                    "name": "historyId",
+                    "description": "Unique identifier for the history entry."
+                }
+            ]
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to manage a smart home inventory system with a focus on pre-defined items, quick actions, automated checks, recurring items, and a summary dashboard.  The key design principle is Authorization Independence, achieved by structuring user-specific data under their respective user IDs, eliminating the need for `get()` calls in security rules. Item templates are global, and inventory items are owned by the user. This approach allows atomic operations and simplifies security rule implementation. The structure uses path-based ownership for InventoryItems under each user's document. ItemTemplates are stored in a common collection that can be queried without user authorization. The structure also supports the required QAPs (Rules are not filters) by segregating global item templates from user-specific inventory data, enabling secure `list` operations on either collection based on the user's authentication status."
+    "reasoning": "The Firestore data structure is designed to manage a smart home inventory system with a focus on pre-defined items, quick actions, automated checks, recurring items, and a summary dashboard.  The key design principle is Authorization Independence, achieved by structuring user-specific data under their respective user IDs, eliminating the need for `get()` calls in security rules. Item templates are global, and inventory items are owned by the user. This approach allows atomic operations and simplifies security rule implementation. The structure uses path-based ownership for InventoryItems under each user's document. ItemTemplates are stored in a common collection that can be queried without user authorization. The structure also supports the required QAPs (Rules are not filters) by segregating global item templates from user-specific inventory data, enabling secure `list` operations on either collection based on the user's authentication status. A history subcollection is added to each inventory item to track changes over time."
   }
 }
