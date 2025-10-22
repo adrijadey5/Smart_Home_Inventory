@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import type { InventoryItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -11,7 +11,7 @@ export function useInventory(userId?: string) {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const inventoryCollectionRef = useMemo(() => {
+  const inventoryCollectionRef = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
     return collection(firestore, 'users', userId, 'inventory_items');
   }, [firestore, userId]);
