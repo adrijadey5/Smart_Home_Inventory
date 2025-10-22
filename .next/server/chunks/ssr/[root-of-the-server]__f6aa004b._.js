@@ -2788,8 +2788,12 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$index$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$module__evaluation$3e$__ = __turbopack_context__.i("[project]/src/firebase/index.ts [app-ssr] (ecmascript) <module evaluation>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$firestore$2f$use$2d$collection$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/firebase/firestore/use-collection.tsx [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$provider$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/firebase/provider.tsx [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$errors$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/firebase/errors.ts [app-ssr] (ecmascript)");
+var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$error$2d$emitter$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/firebase/error-emitter.ts [app-ssr] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$hooks$2f$use$2d$toast$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/src/hooks/use-toast.ts [app-ssr] (ecmascript)");
 'use client';
+;
+;
 ;
 ;
 ;
@@ -2813,8 +2817,6 @@ function useInventory(userId) {
                 return {
                     ...item,
                     id: item.id,
-                    // Firestore timestamp objects have to be converted to JS Date objects.
-                    // Firestore returns null for dates that were saved as null.
                     expiryDate: expiryDate && expiryDate.seconds ? new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Timestamp"](expiryDate.seconds, expiryDate.nanoseconds).toDate() : undefined
                 };
             }).sort((a, b)=>a.name.localeCompare(b.name));
@@ -2824,116 +2826,128 @@ function useInventory(userId) {
         collectionData
     ]);
     const handleAddItem = (item)=>{
-        if (!firestore || !userId) return;
-        try {
-            const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
-            const newItemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(inventoryCollectionRef);
-            const dataToSave = {
-                ...item,
-                expiryDate: item.expiryDate || null,
-                recurringCycle: item.recurringCycle || null
-            };
-            batch.set(newItemRef, dataToSave);
-            const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', newItemRef.id, 'history'));
-            const historyEntry = {
-                changeType: 'created',
-                changedFields: Object.keys(dataToSave),
-                newData: dataToSave
-            };
-            batch.set(historyRef, historyEntry);
-            batch.commit();
+        if (!firestore || !userId || !inventoryCollectionRef) return;
+        const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
+        const newItemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(inventoryCollectionRef);
+        const dataToSave = {
+            ...item,
+            expiryDate: item.expiryDate || null,
+            recurringCycle: item.isRecurring ? item.recurringCycle : null
+        };
+        batch.set(newItemRef, dataToSave);
+        const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', newItemRef.id, 'history'));
+        const historyEntry = {
+            changeType: 'created',
+            changedFields: Object.keys(dataToSave),
+            newData: dataToSave
+        };
+        batch.set(historyRef, historyEntry);
+        batch.commit().then(()=>{
             toast({
                 title: "Success",
                 description: `${item.name} added to inventory.`
             });
-        } catch (error) {
-            console.error("Error adding item with history:", error);
+        }).catch((error)=>{
             toast({
                 title: "Error",
                 description: "Could not add item.",
                 variant: "destructive"
             });
-        }
+            // Emit a contextual error for debugging security rules.
+            // We guess the most likely failure point is the history write.
+            __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$error$2d$emitter$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["errorEmitter"].emit('permission-error', new __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$errors$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["FirestorePermissionError"]({
+                path: historyRef.path,
+                operation: 'create',
+                requestResourceData: historyEntry
+            }));
+        });
     };
     const handleEditItem = (updatedItem)=>{
         if (!firestore || !userId) return;
         const originalItem = inventory.find((i)=>i.id === updatedItem.id);
         if (!originalItem) return;
-        try {
-            const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
-            const itemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(firestore, 'users', userId, 'inventory_items', updatedItem.id);
-            const dataToSave = {
-                ...updatedItem,
-                expiryDate: updatedItem.expiryDate || null,
-                recurringCycle: updatedItem.recurringCycle || null
-            };
-            delete dataToSave.id;
-            batch.update(itemRef, dataToSave);
-            const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', updatedItem.id, 'history'));
-            const changedFields = [];
-            const oldData = {};
-            const newData = {};
-            for(const key in dataToSave){
-                if (dataToSave.hasOwnProperty(key)) {
-                    const typedKey = key;
-                    if (JSON.stringify(originalItem[typedKey]) !== JSON.stringify(dataToSave[typedKey])) {
-                        changedFields.push(key);
-                        oldData[typedKey] = originalItem[typedKey];
-                        newData[typedKey] = dataToSave[typedKey];
-                    }
+        const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
+        const itemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(firestore, 'users', userId, 'inventory_items', updatedItem.id);
+        const dataToSave = {
+            ...updatedItem,
+            expiryDate: updatedItem.expiryDate || null,
+            recurringCycle: updatedItem.isRecurring ? updatedItem.recurringCycle : null
+        };
+        delete dataToSave.id;
+        batch.update(itemRef, dataToSave);
+        const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', updatedItem.id, 'history'));
+        const changedFields = [];
+        const oldData = {};
+        const newData = {};
+        for(const key in dataToSave){
+            if (dataToSave.hasOwnProperty(key)) {
+                const typedKey = key;
+                if (JSON.stringify(originalItem[typedKey]) !== JSON.stringify(dataToSave[typedKey])) {
+                    changedFields.push(key);
+                    oldData[typedKey] = originalItem[typedKey];
+                    newData[typedKey] = dataToSave[typedKey];
                 }
             }
-            if (changedFields.length > 0) {
-                const historyEntry = {
-                    changeType: 'updated',
-                    changedFields,
-                    oldData,
-                    newData
-                };
-                batch.set(historyRef, historyEntry);
-            }
-            batch.commit();
+        }
+        if (changedFields.length > 0) {
+            const historyEntry = {
+                changeType: 'updated',
+                changedFields,
+                oldData,
+                newData
+            };
+            batch.set(historyRef, historyEntry);
+        }
+        batch.commit().then(()=>{
             toast({
                 title: "Success",
                 description: `${updatedItem.name} has been updated.`
             });
-        } catch (error) {
-            console.error("Error updating item with history:", error);
+        }).catch((error)=>{
             toast({
                 title: "Error",
                 description: "Could not update item.",
                 variant: "destructive"
             });
-        }
+            // Emit a contextual error for debugging security rules.
+            __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$error$2d$emitter$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["errorEmitter"].emit('permission-error', new __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$errors$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["FirestorePermissionError"]({
+                path: itemRef.path,
+                operation: 'update',
+                requestResourceData: dataToSave
+            }));
+        });
     };
     const handleDeleteItem = (itemId)=>{
         if (!firestore || !userId) return;
         const itemToDelete = inventory.find((i)=>i.id === itemId);
         if (!itemToDelete) return;
-        try {
-            const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
-            const itemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(firestore, 'users', userId, 'inventory_items', itemId);
-            batch.delete(itemRef);
-            const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', itemId, 'history'));
-            const historyEntry = {
-                changeType: 'deleted',
-                oldData: itemToDelete
-            };
-            batch.set(historyRef, historyEntry);
-            batch.commit();
+        const batch = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["writeBatch"])(firestore);
+        const itemRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])(firestore, 'users', userId, 'inventory_items', itemId);
+        batch.delete(itemRef);
+        const historyRef = (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["doc"])((0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$firebase$2f$firestore$2f$dist$2f$index$2e$node$2e$mjs__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["collection"])(firestore, 'users', userId, 'inventory_items', itemId, 'history'));
+        const historyEntry = {
+            changeType: 'deleted',
+            oldData: itemToDelete
+        };
+        batch.set(historyRef, historyEntry);
+        batch.commit().then(()=>{
             toast({
                 title: "Item Deleted",
                 description: `${itemToDelete.name} removed from inventory.`,
                 variant: "destructive"
             });
-        } catch (error) {
-            console.error("Error deleting item with history:", error);
+        }).catch((error)=>{
             toast({
                 title: "Error",
                 description: "Could not delete item.",
                 variant: "destructive"
             });
-        }
+            // Emit a contextual error for debugging security rules.
+            __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$error$2d$emitter$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["errorEmitter"].emit('permission-error', new __TURBOPACK__imported__module__$5b$project$5d2f$src$2f$firebase$2f$errors$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["FirestorePermissionError"]({
+                path: itemRef.path,
+                operation: 'delete'
+            }));
+        });
     };
     return {
         inventory,
