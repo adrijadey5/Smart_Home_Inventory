@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "ItemTemplate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ItemTemplate",
+      "type": "object",
+      "description": "Represents a predefined item template, providing a list of common items for users to select from.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ItemTemplate entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the item (e.g., Milk, Eggs, Sugar)."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the item (e.g., Grocery, Personal Care)."
+        },
+        "defaultQuantity": {
+          "type": "number",
+          "description": "Default quantity for the item."
+        },
+        "unit": {
+          "type": "string",
+          "description": "The unit of measure for the item (e.g., lbs, gallons, items)."
+        },
+        "barcode": {
+          "type": "string",
+          "description": "The barcode or QR code associated with the item."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category"
+      ]
+    },
+    "InventoryItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InventoryItem",
+      "type": "object",
+      "description": "Represents an item in the user's inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the InventoryItem entity."
+        },
+        "itemTemplateId": {
+          "type": "string",
+          "description": "Reference to ItemTemplate. (Relationship: ItemTemplate 1:N InventoryItem)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the item in the inventory."
+        },
+        "expiryDate": {
+          "type": "string",
+          "description": "Expiry date of the item.",
+          "format": "date-time"
+        },
+        "purchaseDate": {
+          "type": "string",
+          "description": "Date the item was purchased.",
+          "format": "date-time"
+        },
+        "recurring": {
+          "type": "boolean",
+          "description": "Indicates if the item is recurring."
+        },
+        "recurringInterval": {
+          "type": "string",
+          "description": "The interval at which the item recurs (e.g., weekly, monthly)."
+        }
+      },
+      "required": [
+        "id",
+        "itemTemplateId",
+        "quantity",
+        "expiryDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/item_templates/{itemTemplateId}",
+        "definition": {
+          "entityName": "ItemTemplate",
+          "schema": {
+            "$ref": "#/backend/entities/ItemTemplate"
+          },
+          "description": "Collection of predefined item templates available to all users.",
+          "params": [
+            {
+              "name": "itemTemplateId",
+              "description": "Unique identifier for the item template."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/inventory_items/{inventoryItemId}",
+        "definition": {
+          "entityName": "InventoryItem",
+          "schema": {
+            "$ref": "#/backend/entities/InventoryItem"
+          },
+          "description": "Collection of inventory items owned by a specific user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            },
+            {
+              "name": "inventoryItemId",
+              "description": "Unique identifier for the inventory item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to manage a smart home inventory system with a focus on pre-defined items, quick actions, automated checks, recurring items, and a summary dashboard.  The key design principle is Authorization Independence, achieved by structuring user-specific data under their respective user IDs, eliminating the need for `get()` calls in security rules. Item templates are global, and inventory items are owned by the user. This approach allows atomic operations and simplifies security rule implementation. The structure uses path-based ownership for InventoryItems under each user's document. ItemTemplates are stored in a common collection that can be queried without user authorization. The structure also supports the required QAPs (Rules are not filters) by segregating global item templates from user-specific inventory data, enabling secure `list` operations on either collection based on the user's authentication status."
+  }
+}
