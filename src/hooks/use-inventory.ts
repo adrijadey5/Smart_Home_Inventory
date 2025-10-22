@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, Timestamp } from 'firebase/firestore';
 import { useCollection, useFirestore, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import type { InventoryItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -20,11 +20,16 @@ export function useInventory(userId?: string) {
 
   useEffect(() => {
     if (collectionData) {
-      const parsedData = collectionData.map(item => ({
-        ...item,
-        id: item.id,
-        expiryDate: item.expiryDate ? new Date(item.expiryDate) : undefined,
-      })).sort((a, b) => a.name.localeCompare(b.name));
+      const parsedData = collectionData.map(item => {
+        const expiryDate = (item.expiryDate as any);
+        return {
+            ...item,
+            id: item.id,
+            // Firestore timestamp objects have to be converted to JS Date objects.
+            // Firestore returns null for dates that were saved as null.
+            expiryDate: expiryDate && expiryDate.seconds ? new Timestamp(expiryDate.seconds, expiryDate.nanoseconds).toDate() : undefined,
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
       setInventory(parsedData);
     }
   }, [collectionData]);
@@ -34,7 +39,7 @@ export function useInventory(userId?: string) {
     
     const dataToSave = {
       ...item,
-      expiryDate: item.expiryDate?.toISOString() || null,
+      expiryDate: item.expiryDate || null,
     };
     
     addDocumentNonBlocking(inventoryCollectionRef, dataToSave);
@@ -47,7 +52,7 @@ export function useInventory(userId?: string) {
     
     const dataToSave = {
       ...updatedItem,
-      expiryDate: updatedItem.expiryDate?.toISOString() || null,
+      expiryDate: updatedItem.expiryDate || null,
     };
     delete (dataToSave as any).id; 
     
