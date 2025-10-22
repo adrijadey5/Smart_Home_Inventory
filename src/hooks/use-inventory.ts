@@ -40,6 +40,7 @@ export function useInventory(userId?: string) {
     const dataToSave = {
       ...item,
       expiryDate: item.expiryDate || null,
+      recurringCycle: item.recurringCycle || null,
     };
     
     addDocumentNonBlocking(inventoryCollectionRef, dataToSave);
@@ -53,6 +54,7 @@ export function useInventory(userId?: string) {
     const dataToSave = {
       ...updatedItem,
       expiryDate: updatedItem.expiryDate || null,
+      recurringCycle: updatedItem.recurringCycle || null,
     };
     delete (dataToSave as any).id; 
     
