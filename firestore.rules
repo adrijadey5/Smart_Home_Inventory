@@ -2,34 +2,36 @@
  * @fileoverview Firestore Security Rules for the smart home inventory system.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for inventory items,
- * ensuring that only authenticated users can manage their own inventory data.
- * Item templates are globally readable.
+ * This ruleset enforces a user-ownership model for inventory items and their history,
+ * ensuring that only the authenticated user can access their own data. Item templates
+ * are publicly readable, but not writable.  Data validation is minimal to allow for
+ * rapid prototyping and schema iteration.
  *
  * Data Structure:
- * - /item_templates/{itemTemplateId}: Stores predefined item templates, accessible to all users.
- * - /users/{userId}/inventory_items/{inventoryItemId}: Stores inventory items owned by a specific user.
+ * - /item_templates/{itemTemplateId}: Publicly readable collection of item templates.
+ * - /users/{userId}/inventory_items/{inventoryItemId}: Inventory items owned by a specific user.
+ * - /users/{userId}/inventory_items/{inventoryItemId}/history/{historyId}: History of changes for an inventory item.
  *
  * Key Security Decisions:
- * - Users can only create, read, update, and delete inventory items under their own user ID.
+ * - Users can only create, read, update, and delete their own inventory items and their history.
  * - Item templates are publicly readable but not writable.
- * - Listing inventory items is restricted to the owner of the items.
+ * - Listing of all users is disallowed.
  *
  * Denormalization for Authorization:
- *  - The design uses path-based ownership for `InventoryItem` documents, eliminating
- *    the need for extra `get()` calls to determine ownership. The `userId` is
- *    implicitly available from the path.
+ * The data is structured to avoid the need for `get()` calls in security rules.
+ * User-specific data is nested under their respective user IDs, allowing for simple
+ * path-based authorization checks.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows anyone to read item templates, but prohibits creation, updates, and deletion.
+     * @description Allows anyone to read item templates, but restricts writes.
      * @path /item_templates/{itemTemplateId}
-     * @allow get, list: if true
-     * @deny create, update, delete: if false
-     * @principle Allows public read access to item templates while restricting write access.
+     * @allow (get, list): if true;
+     * @deny (create, update, delete): if false;
+     * @principle Allows public read access to item templates while preventing unauthorized modifications.
      */
     match /item_templates/{itemTemplateId} {
       allow get, list: if true;
@@ -37,30 +39,41 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages access to inventory items owned by a specific user.
+     * @description Manages inventory items owned by a specific user. Only the owner can create, read, update, or delete items.
      * @path /users/{userId}/inventory_items/{inventoryItemId}
-     * @allow create: if isSignedIn() && isOwner(userId);
-     * @allow get, list, update, delete: if isSignedIn() && isExistingOwner(userId);
-     * @deny create: if !isSignedIn();
-     * @deny update: if !isSignedIn();
-     * @deny delete: if !isSignedIn();
-     * @deny get: if !isSignedIn();
-     * @deny list: if !isSignedIn();
-     * @principle Enforces document ownership: only the user who owns the inventory items can read and write to them.
+     * @allow (create): User 'Xy28O9UKgfP1OZDybbgHICZJYd52' can create an inventory item if request.auth.uid == userId
+     * @allow (get, list): User 'Xy28O9UKgfP1OZDybbgHICZJYd52' can get and list their own inventory items.
+     * @allow (update, delete): User 'Xy28O9UKgfP1OZDybbgHICZJYd52' can update/delete their own inventory items if they exist.
+     * @deny (create, update, delete): User 'differentUser' cannot create, update, or delete inventory items for user 'Xy28O9UKgfP1OZDybbgHICZJYd52'.
+     * @principle Enforces document ownership for all operations on inventory items.
      */
     match /users/{userId}/inventory_items/{inventoryItemId} {
+      allow get, list: if isSignedIn() && isOwner(userId);
       allow create: if isSignedIn() && isOwner(userId);
-      allow get: if isSignedIn() && isExistingOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isExistingOwner(userId);
       allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
-    // ---- Helper functions ----
+    /**
+     * @description Manages the history of changes for a specific inventory item. Only the owner of the item can create history entries.
+     * @path /users/{userId}/inventory_items/{inventoryItemId}/history/{historyId}
+     * @allow (create): User 'Xy28O9UKgfP1OZDybbgHICZJYd52' can create a history entry for their inventory item.
+     * @allow (get, list): User 'Xy28O9UKgfP1OZDybbgHICZJYd52' can read the history of their inventory item.
+     * @allow (update, delete): Denied. History entries should not be updated or deleted.
+     * @deny (create): User 'differentUser' cannot create history entries for user 'Xy28O9UKgfP1OZDybbgHICZJYd52'.
+     * @principle Restricts access to inventory item history to the item owner and prevents unauthorized modifications.
+     */
+    match /users/{userId}/inventory_items/{inventoryItemId}/history/{historyId} {
+      allow get, list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update, delete: if false;
+    }
+
+    // --- Helper Functions ---
 
     /**
      * @description Checks if the user is signed in.
-     * @return {bool} True if the user is authenticated, false otherwise.
+     * @return {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -68,17 +81,17 @@ service cloud.firestore {
 
     /**
      * @description Checks if the user ID matches the authenticated user's ID.
-     * @param {string} userId The user ID to compare against.
-     * @return {bool} True if the user ID matches the authenticated user's ID, false otherwise.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user ID matches the authenticated user's ID, false otherwise.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the owner and the resource exists.
-     * @param {string} userId The user ID to compare against.
-     * @return {bool} True if the user is the owner and the resource exists.
+     * @description Checks if the user is the owner of an existing document.
+     * @param {string} userId The user ID to check.
+     * @return {boolean} True if the user is the owner of the document and the document exists.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
