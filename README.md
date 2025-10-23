@@ -1,4 +1,5 @@
 HOMESTOCK-A SMART HOME INVENTORY SYSTEM
+
 This application simplifies household inventory management with a modern, user-friendly interface along with user authentication and smart features. Users can quickly add items from predefined lists or custom entries, use quick-add buttons for frequent quantities, simulate barcode/QR code scanning, and track recurring items. The system automatically highlights low-stock or near-expiry items in a summary dashboard, reducing manual effort and making inventory management fast, efficient, and semi-automated. The inventory items log history and user login detail reside in database.
 
 Key Features:
